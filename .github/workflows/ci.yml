@@ -23,9 +23,7 @@ jobs:
         python-version-file: "backend/.python-version"
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v6
-      with:
-        version: "latest"
+      uses: astral-sh/setup-uv@v8.1.0 # Фиксирана стабилна верзија на uv
 
     - name: Install dependencies
       run: uv sync --all-groups
@@ -41,3 +39,30 @@ jobs:
 
     - name: Run tests with coverage
       run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing
+
+  build-and-push:
+    needs: test # Овој чекор ќе започне САМО доколку сите тестови погоре поминат успешно!
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/urlshortener-backend:latest
+
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/urlshortener-frontend:latest
