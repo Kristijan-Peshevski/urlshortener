@@ -1,38 +1,19 @@
-# Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM python:3.11-slim
 
-# Install the project into `/app`
 WORKDIR /app
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
+# Се презема готовата 'uv' бинарна датотека од официјалниот имиџ на Astral
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
+# Се копира pyproject.toml (и uv.lock доколку постои)
+COPY pyproject.toml uv.lock* ./
 
-# Ensure installed tools can be executed out of the box
-ENV UV_TOOL_BIN_DIR=/usr/local/bin
+# Се инсталираат сите депенденси дефинирани во pyproject.toml директно во контејнерот
+RUN uv pip install --system -r pyproject.toml
 
-COPY pyproject.toml uv.lock ./
-
-# Install the project's dependencies using the lockfile and settings
-RUN uv sync --locked --no-install-project --no-dev
-
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
-COPY . /app
-RUN uv sync --locked --no-dev
-
-# Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:$PATH"
-
-COPY entrypoint.sh /entrypoint.sh
-
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Се копира останатиот дел од кодот на апликацијата
+COPY . .
 
 EXPOSE 8000
 
-# Run the FastAPI application by default
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

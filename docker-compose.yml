@@ -1,47 +1,41 @@
+version: '3.8'
+
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/.env
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-    networks:
-      - app_network
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    env_file:
-      - ./frontend/.env.local
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    networks:
-      - app_network
-    restart: unless-stopped
-
-  db:
-    image: postgres:latest
-    env_file:
-      - ./backend/.env
+  postgres-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: kii_user
+      POSTGRES_PASSWORD: kii_secure_password
+      POSTGRES_DB: url_db
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - app_network
-    restart: unless-stopped
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Вредностите кои ги очекува config.py кај бекендот:
+      - POSTGRES_USER=kii_user
+      - POSTGRES_PASSWORD=kii_secure_password
+      - POSTGRES_DB=url_db
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - BASE_URL=http://localhost:3000
+    depends_on:
+      - postgres-db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=http://backend:8000
+      - BASE_URL=http://localhost:3000
+    depends_on:
+      - backend
 
 volumes:
-  db_data:
-
-networks:
-  app_network:
-    driver: bridge
+  pgdata:
